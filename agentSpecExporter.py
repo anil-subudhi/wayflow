@@ -7,6 +7,11 @@ from wayflowcore.executors.executionstatus import (
     FinishedStatus,
     UserMessageRequestStatus,
 )
+
+from wayflowcore.models.openaicompatiblemodel import OpenAICompatibleModel
+import os
+from wayflowcore.models.openaiapitype import OpenAIAPIType
+
 # llm = VllmModel(
 #     model_id="model-id",
 #     host_port="VLLM_HOST_PORT",
@@ -16,22 +21,37 @@ llm = OllamaModel(
      model_id="qwen2:7b",
 )
 
+# llm = OpenAICompatibleModel(
+#     model_id="oca/gpt-5.1-codex",
+#     base_url="",
+#     api_key=os.environ['OCA_API_KEY'],
+#     api_type=OpenAIAPIType.RESPONSES,
+# )
+
 @tool
 def say_hello_tool() -> str:
     '''This tool returns "hello"'''
     return "hello Anil kumar"
 
+@tool
+def add_mumbers() -> str:
+    """add two numbers"""
+    return (
+        "Starting long processing\n"
+
+    )
+
 agent = Agent(
     name="Simple Agent",
     llm=llm,
-    tools=[say_hello_tool]
+    tools=[say_hello_tool,add_mumbers]
 )
 config = AgentSpecExporter().to_json(agent)
 #print(config)
 
 # With a linear conversation
 conversation = agent.start_conversation()
-conversation.append_user_message("Hello!")
+conversation.append_user_message("Greetings!")
 status = conversation.execute()
 
 if isinstance(status, UserMessageRequestStatus):
@@ -44,11 +64,11 @@ else:
 
 
 
-from wayflowcore.agentspec import AgentSpecLoader
-TOOL_REGISTRY = {"say_hello_tool": say_hello_tool}
-loader = AgentSpecLoader(tool_registry=TOOL_REGISTRY)
-deser_agent = loader.load_json(config)
-print(deser_agent)
+# from wayflowcore.agentspec import AgentSpecLoader
+# TOOL_REGISTRY = {"say_hello_tool": say_hello_tool}
+# loader = AgentSpecLoader(tool_registry=TOOL_REGISTRY)
+# deser_agent = loader.load_json(config)
+# print(deser_agent)
 
 
 # import os
@@ -70,7 +90,7 @@ print(deser_agent)
 #
 # llm = OpenAICompatibleModel(
 #     model_id="oca/gpt-5.1-codex",
-#     base_url="https://code-internal.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm/responses",
+#     base_url="",
 #     api_key=os.environ['OCA_API_KEY'],
 #     api_type=OpenAIAPIType.RESPONSES,
 # )

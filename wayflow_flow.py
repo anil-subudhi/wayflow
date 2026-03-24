@@ -76,7 +76,7 @@ llm = OllamaModel(
 
 # llm = OpenAICompatibleModel(
 #     model_id="oca/gpt-5.1-codex",
-#     base_url="url",
+#     base_url="",
 #     api_key=os.environ['OCA_API_KEY'],
 #     api_type=OpenAIAPIType.RESPONSES,
 # )

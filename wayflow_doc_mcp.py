@@ -9,9 +9,10 @@ from wayflowcore.tools import tool
 
 from wayflowcore.models import VllmModel
 from wayflowcore.models.openaicompatiblemodel import OpenAICompatibleModel
+from wayflowcore.mcp import MCPTool, StdioTransport, enable_mcp_without_auth
 
 from wayflowcore.models.openaiapitype import OpenAIAPIType
-
+from wayflowcore.models import OllamaModel
 from wayflowcore.tools import ClientTool
 from wayflowcore.property import FloatProperty
 
@@ -22,29 +23,46 @@ llm = OpenAICompatibleModel(
     api_type=OpenAIAPIType.RESPONSES,
 )
 
+# llm = OllamaModel(
+#      model_id="qwen2:7b",
+# )
+
 AGENT_INSTRUCTIONS = """
 You are a helpful coding agent.
 """.strip()
 
-def add_tool(arg1, arg2):
-   print(">>>>>>>>>ADDING TOOL>>>>>>>>>>>>")
-   return arg1 + arg2
+ 
+ 
+# Add docs mcp to codex config
+# codex mcp add wayflow_docs -- uv run --with mcp -- https://raw.githubusercontent.com/oracle/wayflow/refs/heads/main/examples/mcp/docs_mcp.py --base-docs-url https://oracle.github.io/wayflow/development
+# Clone https://github.com/oracle/wayflow.git current dir 
+# examples/mcp/docs_mcp.py path inside git repo
+# cwd where wayflow repo cloned './wayflow'
 
-addition_client_tool = ClientTool(
-   name="add_numbers",
-   description="Simply adds two numbers",
-   input_descriptors=[
-        FloatProperty(name="a", description="the first number", default_value=0),
-        FloatProperty(name="b", description="the second number"),
-   ],
-   output_descriptors=[FloatProperty()]
+enable_mcp_without_auth()
+docs_transport = StdioTransport(
+    command="python",
+    args=[
+        "examples/mcp/docs_mcp.py",
+        "--base-docs-url",
+        "https://oracle.github.io/wayflow/development",
+    ],
+    cwd="./wayflow",
+)
+
+docs_tool = MCPTool(
+    name="get_docs",
+    client_transport=docs_transport,
 )
 
 assistant = Agent(
-    custom_instruction=AGENT_INSTRUCTIONS,
-    tools=[addition_client_tool],  # this is a decorated python function (Server tool in this example)
-    llm=llm,  # the LLM object we created above
+    llm=llm,
+    tools=[docs_tool],
 )
+
+
+
+config = AgentSpecExporter().to_yaml(assistant)
 
 inputs = {}
 conversation = assistant.start_conversation(inputs)
