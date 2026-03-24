@@ -12,6 +12,8 @@ from wayflowcore.agentspec import AgentSpecLoader as WayFlowLoader
 from wayflowcore.agent import Agent as RuntimeAgent
 from wayflowcore.executors.executionstatus import UserMessageRequestStatus
 from wayflowcore.agentspec import AgentSpecLoader
+from pyagentspec.property import StringProperty
+from pyagentspec.tools import RemoteTool
 
 # llm_config = OllamaConfig(
 #     name="ollama-llm",
@@ -22,7 +24,7 @@ from wayflowcore.agentspec import AgentSpecLoader
 llm_config = OpenAiCompatibleConfig(
     name="ocimodel",
     model_id="oca/gpt-5.1-codex",
-    url=""
+    url=os.environ['OCA_MODEL_API'], 
     api_key=os.environ['OCA_API_KEY'],
     api_type=OpenAIAPIType.RESPONSES,
 )
@@ -36,7 +38,7 @@ get_context_tool = ServerTool(
 
 def get_context(jira_issue_id: str) -> str:
    """Return a context summary for a Jira incident."""
-   if jira_issue_id == "INC-12345":
+   if jira_issue_id == "UNO-1003":
       return "Payments API latency incident in us-west-1 during 2025-10-08T14:20Z–14:40Z."
    if jira_issue_id == "INC-56789":
       return "Inventory service 5xx spike in eu-frankfurt-1 during 2025-10-08T09:00Z–09:15Z."
@@ -55,18 +57,18 @@ def get_context(jira_issue_id: str) -> str:
 # agent = AgentSpecLoader(tool_registry=tool_registry).load_component(agent_config)
 
 # conversation = agent.start_conversation()
-# conversation.append_user_message("Please help with the ticket INC-12345")
+# conversation.append_user_message("Please help with the ticket UNO-1003")
 # status = conversation.execute()
 # last_agent_message = conversation.get_last_message()
 # print(last_agent_message.content)
-# There was a Payments API latency incident in us-west-1 during 2025-10-08T14:20Z–14:40Z# Is there anything else I can help you with regarding ticket INC-12345?
+# There was a Payments API latency incident in us-west-1 during 2025-10-08T14:20Z–14:40Z# Is there anything else I can help you with regarding ticket UNO-1003?
 
 
 read_jira_ticket_tool = ServerTool(
     name="read_jira_ticket",
     description="Return a plain-text summary of the Jira incident.",
     inputs=[
-        StringProperty(title="jira_issue_id", description='The Jira issue key, e.g., "INC-12345"')
+        StringProperty(title="jira_issue_id", description='The Jira issue key, e.g., "UNO-1003"')
     ],
     outputs=[
         StringProperty(
@@ -79,9 +81,9 @@ read_jira_ticket_tool = ServerTool(
 
 def read_jira_ticket(jira_issue_id: str) -> str:
     """Return a plain-text summary of the Jira incident."""
-    if jira_issue_id == "INC-12345":
+    if jira_issue_id == "UNO-1003":
         return (
-            "Incident INC-12345\n"
+            "Incident UNO-1003\n"
             "Summary: Elevated latency on Payments API in us-west-1\n"
             "Detected by: CloudWatch Alarm cw:payments-latency-high\n"
             "Impact: 5xx/latency spikes for checkout\n"
@@ -222,9 +224,30 @@ def read_logs(
 
     return "No logs matched the provided filters."
 
+
+
+record_incident_root_cause_tool = RemoteTool(
+   name="record_incident_root_cause_tool",
+   description="Updates the root cause of an incident in Jira",
+   url=os.environ['JIRA_SD_URL']+"/rest/api/2/issue/{{jira_issue_id}}/comment",
+   inputs=[
+      StringProperty(title="jira_issue_id", description="The ID of the Jira issue to update"),
+      StringProperty(
+            title="root_cause", description="The root cause description to be recorded"
+      ),
+   ],
+   http_method="POST",
+   data={"body": "{{root_cause}}"},
+   headers={
+      "Authorization": f"Bearer {os.environ['JIRA_ACCESS_TOKEN']}",
+      "Content-Type": "application/json",
+   },
+)
+
+
 CUSTOM_INSTRUCTIONS = """
 You are an LLM-based operations assistant. You have four tools available:
-read_jira_ticket, read_runbook, get_alarm_status, read_logs
+read_jira_ticket, read_runbook, get_alarm_status, read_logs, record_incident_root_cause_tool
 
 Investigation flow (starting with a Jira ID)
 1) Retrieve ticket
@@ -265,6 +288,12 @@ Use this output template:
 - Validation: <what success looks like (e.g., P95 < threshold for X min)>
 - Open questions/next checks: <only if needed>
 - Artifacts: <any identifiers: deployment IDs, feature flags, trace IDs seen in logs>
+
+
+7) Update issue 
+- Evidence:
+- Ticket highlights: <key notes, deployments, flags>
+
 """.strip()
 
 
@@ -272,7 +301,7 @@ agent_config = Agent(
     name="Operation_Assistant_Agent",
     description="Agent equipped with tools to assist with operation incidents",
     llm_config=llm_config,
-    tools=[read_jira_ticket_tool, read_logs_tool, read_runbook_tool, get_alarm_status_tool],
+    tools=[read_jira_ticket_tool, read_logs_tool, read_runbook_tool, get_alarm_status_tool,record_incident_root_cause_tool],
     system_prompt=CUSTOM_INSTRUCTIONS
 )
 
@@ -288,6 +317,7 @@ tool_registry = {
     "read_logs": read_logs,
     "read_runbook": read_runbook,
     "get_alarm_status": get_alarm_status,
+    "record_incident_root_cause_tool": record_incident_root_cause_tool,
 }
 
 #agent: RuntimeAgent = WayFlowLoader(tool_registry=tool_registry).load_json(serialized_agent)
