@@ -31,13 +31,26 @@ AGENT_INSTRUCTIONS = """
 You are a helpful coding agent.
 """.strip()
 
- 
+
  
 # Add docs mcp to codex config
 # codex mcp add wayflow_docs -- uv run --with mcp -- https://raw.githubusercontent.com/oracle/wayflow/refs/heads/main/examples/mcp/docs_mcp.py --base-docs-url https://oracle.github.io/wayflow/development
 # Clone https://github.com/oracle/wayflow.git current dir 
 # examples/mcp/docs_mcp.py path inside git repo
 # cwd where wayflow repo cloned './wayflow'
+
+#User query
+
+#“Where is the MCP guide, and which transport should I use for a local subprocess server?”
+#“Show me an existing WayFlow example that connects an agent to an MCP server.”
+#“What can you browse in the WayFlow docs bundle?”
+#“Before you write code, remind me what WayFlow means by an Agent.”
+
+
+
+
+
+
 
 enable_mcp_without_auth()
 docs_transport = StdioTransport(
